@@ -1,0 +1,44 @@
+// 1️⃣ Tentukan koneksi database
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// 2️⃣ Definisi tabel Kriteria
+model Kriteria {
+  id_kriteria   Int      @id @default(autoincrement())
+  nama_kriteria String   @db.VarChar(50)
+  bobot         Decimal  @db.Decimal(5, 2)
+  tipe          JenisTipe
+}
+
+enum JenisTipe {
+  benefit
+  cost
+}
+// 3️⃣ Definisi tabel Kosan
+model Kosan {
+  id_kosan   Int       @id @default(autoincrement())
+  nama       String    @db.VarChar(100)
+  harga      Decimal   @db.Decimal(10, 2)
+  jarak      Decimal   @db.Decimal(10, 2)
+  fasilitas  Decimal   @db.Decimal(10, 2)
+  rating     Decimal   @db.Decimal(10, 2)
+  keamanan   Decimal   @db.Decimal(10, 2)
+
+  hasil_topsis HasilTopsis[] // relasi ke hasil_topsis
+}
+
+// 4️⃣ Definisi tabel Hasil TOPSIS
+model HasilTopsis {
+  id_hasil         Int      @id @default(autoincrement())
+  id_kosan         Int
+  nilai_preferensi Decimal  @db.Decimal(10, 4)
+  ranking          Int
+
+  kosan Kosan @relation(fields: [id_kosan], references: [id_kosan], onDelete: Cascade)
+}
