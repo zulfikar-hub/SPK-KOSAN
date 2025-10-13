@@ -212,22 +212,37 @@ export default function DashboardPage() {
     setHasCalculatedSecurity(true)
   }
 
-  const addKosan = () => {
-    if (newKosan.nama && newKosan.harga > 0) {
-      const id = Date.now().toString()
-      setKosanList([...kosanList, { ...newKosan, id }])
-      setNewKosan({
-        nama: "",
-        harga: 0,
-        jarak: 0,
-        fasilitas: 0,
-        rating: 0,
-        sistem_keamanan: 0,
+  const addKosan = async () => {
+  if (newKosan.nama && newKosan.harga > 0) {
+    try {
+      const res = await fetch("/api/kosan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newKosan),
       })
-      setHasCalculated(false)
-      setHasCalculatedSecurity(false)
+
+      if (res.ok) {
+        const saved = await res.json()
+        setKosanList([...kosanList, { ...saved, id: saved.id.toString() }])
+        setNewKosan({
+          nama: "",
+          harga: 0,
+          jarak: 0,
+          fasilitas: 0,
+          rating: 0,
+          sistem_keamanan: 0,
+        })
+        alert("Kosan berhasil ditambahkan ke database!")
+      } else {
+        alert("Gagal menyimpan ke database.")
+      }
+    } catch (error) {
+      console.error(error)
+      alert("Terjadi kesalahan saat menyimpan ke database.")
     }
   }
+}
+
 
   const removeKosan = (id: string) => {
     setKosanList(kosanList.filter((kosan) => kosan.id !== id))
