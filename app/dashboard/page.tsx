@@ -1,36 +1,66 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import Label from '@/components/ui/label';
-import  Slider  from "@/components/ui/slider"
-import { Navigation } from "@/components/navigation"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from "recharts"
-import { Plus, Trash2, Calculator, Download, Home, MapPin, DollarSign, Star, Wifi, Shield, Camera } from "lucide-react"
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import Label from "@/components/ui/label";
+import Slider from "@/components/ui/slider";
+import { Navigation } from "@/components/navigation";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+} from "recharts";
+import {
+  Plus,
+  Trash2,
+  Calculator,
+  Download,
+  Home,
+  MapPin,
+  DollarSign,
+  Star,
+  Wifi,
+  Shield,
+  Camera,
+} from "lucide-react";
 
 interface KosanData {
-  id: string
-  nama: string
-  harga: number
-  jarak: number
-  fasilitas: number
-  rating: number
-  skor?: number
-  sistem_keamanan: number
-  skor_keamanan?: number
+  id: string;
+  nama: string;
+  harga: number;
+  jarak: number;
+  fasilitas: number;
+  rating: number;
+  skor?: number;
+  sistem_keamanan: number;
+  skor_keamanan?: number;
 }
 
 interface Bobot {
-  harga: number
-  jarak: number
-  fasilitas: number
-  rating: number
+  harga: number;
+  jarak: number;
+  fasilitas: number;
+  rating: number;
 }
 
 export default function DashboardPage() {
@@ -62,14 +92,14 @@ export default function DashboardPage() {
       rating: 4.7,
       sistem_keamanan: 8,
     },
-  ])
+  ]);
 
   const [bobot, setBobot] = useState<Bobot>({
     harga: 30,
     jarak: 25,
     fasilitas: 25,
     rating: 20,
-  })
+  });
 
   const [newKosan, setNewKosan] = useState<Omit<KosanData, "id">>({
     nama: "",
@@ -78,19 +108,27 @@ export default function DashboardPage() {
     fasilitas: 0,
     rating: 0,
     sistem_keamanan: 0,
-  })
+  });
 
-  const [hasCalculated, setHasCalculated] = useState(false)
-  const [hasCalculatedSecurity, setHasCalculatedSecurity] = useState(false)
+  const [hasCalculated, setHasCalculated] = useState(false);
+  const [hasCalculatedSecurity, setHasCalculatedSecurity] = useState(false);
 
   const calculateTOPSIS = () => {
-    if (kosanList.length === 0) return
+    if (kosanList.length === 0) return;
 
     const normalizedMatrix = kosanList.map((kosan) => {
-      const hargaNorm = kosan.harga / Math.sqrt(kosanList.reduce((sum, k) => sum + k.harga ** 2, 0))
-      const jarakNorm = kosan.jarak / Math.sqrt(kosanList.reduce((sum, k) => sum + k.jarak ** 2, 0))
-      const fasilitasNorm = kosan.fasilitas / Math.sqrt(kosanList.reduce((sum, k) => sum + k.fasilitas ** 2, 0))
-      const ratingNorm = kosan.rating / Math.sqrt(kosanList.reduce((sum, k) => sum + k.rating ** 2, 0))
+      const hargaNorm =
+        kosan.harga /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.harga ** 2, 0));
+      const jarakNorm =
+        kosan.jarak /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.jarak ** 2, 0));
+      const fasilitasNorm =
+        kosan.fasilitas /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.fasilitas ** 2, 0));
+      const ratingNorm =
+        kosan.rating /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.rating ** 2, 0));
 
       return {
         ...kosan,
@@ -98,8 +136,8 @@ export default function DashboardPage() {
         jarakNorm,
         fasilitasNorm,
         ratingNorm,
-      }
-    })
+      };
+    });
 
     const weightedMatrix = normalizedMatrix.map((kosan) => ({
       ...kosan,
@@ -107,38 +145,39 @@ export default function DashboardPage() {
       jarakWeighted: kosan.jarakNorm * (bobot.jarak / 100),
       fasilitasWeighted: kosan.fasilitasNorm * (bobot.fasilitas / 100),
       ratingWeighted: kosan.ratingNorm * (bobot.rating / 100),
-    }))
+    }));
 
     const idealSolution = {
       harga: Math.min(...weightedMatrix.map((k) => k.hargaWeighted)),
       jarak: Math.min(...weightedMatrix.map((k) => k.jarakWeighted)),
       fasilitas: Math.max(...weightedMatrix.map((k) => k.fasilitasWeighted)),
       rating: Math.max(...weightedMatrix.map((k) => k.ratingWeighted)),
-    }
+    };
 
     const negativeIdealSolution = {
       harga: Math.max(...weightedMatrix.map((k) => k.hargaWeighted)),
       jarak: Math.max(...weightedMatrix.map((k) => k.jarakWeighted)),
       fasilitas: Math.min(...weightedMatrix.map((k) => k.fasilitasWeighted)),
       rating: Math.min(...weightedMatrix.map((k) => k.ratingWeighted)),
-    }
+    };
 
     const updatedKosanList = weightedMatrix.map((kosan) => {
       const distanceToIdeal = Math.sqrt(
         (kosan.hargaWeighted - idealSolution.harga) ** 2 +
           (kosan.jarakWeighted - idealSolution.jarak) ** 2 +
           (kosan.fasilitasWeighted - idealSolution.fasilitas) ** 2 +
-          (kosan.ratingWeighted - idealSolution.rating) ** 2,
-      )
+          (kosan.ratingWeighted - idealSolution.rating) ** 2
+      );
 
       const distanceToNegativeIdeal = Math.sqrt(
         (kosan.hargaWeighted - negativeIdealSolution.harga) ** 2 +
           (kosan.jarakWeighted - negativeIdealSolution.jarak) ** 2 +
           (kosan.fasilitasWeighted - negativeIdealSolution.fasilitas) ** 2 +
-          (kosan.ratingWeighted - negativeIdealSolution.rating) ** 2,
-      )
+          (kosan.ratingWeighted - negativeIdealSolution.rating) ** 2
+      );
 
-      const skor = distanceToNegativeIdeal / (distanceToIdeal + distanceToNegativeIdeal)
+      const skor =
+        distanceToNegativeIdeal / (distanceToIdeal + distanceToNegativeIdeal);
 
       return {
         id: kosan.id,
@@ -150,49 +189,57 @@ export default function DashboardPage() {
         sistem_keamanan: kosan.sistem_keamanan,
         skor: Number(skor.toFixed(3)),
         skor_keamanan: kosan.skor_keamanan,
-      }
-    })
+      };
+    });
 
-    updatedKosanList.sort((a, b) => (b.skor || 0) - (a.skor || 0))
-    setKosanList(updatedKosanList)
-    setHasCalculated(true)
-  }
+    updatedKosanList.sort((a, b) => (b.skor || 0) - (a.skor || 0));
+    setKosanList(updatedKosanList);
+    setHasCalculated(true);
+  };
 
   const calculateSecurityTOPSIS = () => {
-    if (kosanList.length === 0) return
+    if (kosanList.length === 0) return;
 
     // Normalize sistem_keamanan values
     const normalizedMatrix = kosanList.map((kosan) => {
       const sistemNorm =
-        kosan.sistem_keamanan / Math.sqrt(kosanList.reduce((sum, k) => sum + k.sistem_keamanan ** 2, 0))
+        kosan.sistem_keamanan /
+        Math.sqrt(
+          kosanList.reduce((sum, k) => sum + k.sistem_keamanan ** 2, 0)
+        );
 
       return {
         ...kosan,
         sistemNorm,
-      }
-    })
+      };
+    });
 
     // Since we only have one criterion, the weighted value is the same as normalized
     const weightedMatrix = normalizedMatrix.map((kosan) => ({
       ...kosan,
       sistemWeighted: kosan.sistemNorm, // 100% weight for sistem_keamanan
-    }))
+    }));
 
     // Find ideal and negative ideal solutions
     const idealSolution = {
       sistem: Math.max(...weightedMatrix.map((k) => k.sistemWeighted)),
-    }
+    };
 
     const negativeIdealSolution = {
       sistem: Math.min(...weightedMatrix.map((k) => k.sistemWeighted)),
-    }
+    };
 
     // Calculate TOPSIS scores
     const updatedKosanList = weightedMatrix.map((kosan) => {
-      const distanceToIdeal = Math.abs(kosan.sistemWeighted - idealSolution.sistem)
-      const distanceToNegativeIdeal = Math.abs(kosan.sistemWeighted - negativeIdealSolution.sistem)
+      const distanceToIdeal = Math.abs(
+        kosan.sistemWeighted - idealSolution.sistem
+      );
+      const distanceToNegativeIdeal = Math.abs(
+        kosan.sistemWeighted - negativeIdealSolution.sistem
+      );
 
-      const skor_keamanan = distanceToNegativeIdeal / (distanceToIdeal + distanceToNegativeIdeal)
+      const skor_keamanan =
+        distanceToNegativeIdeal / (distanceToIdeal + distanceToNegativeIdeal);
 
       return {
         id: kosan.id,
@@ -204,68 +251,69 @@ export default function DashboardPage() {
         sistem_keamanan: kosan.sistem_keamanan,
         skor: kosan.skor,
         skor_keamanan: Number(skor_keamanan.toFixed(3)),
-      }
-    })
+      };
+    });
 
-    updatedKosanList.sort((a, b) => (b.skor_keamanan || 0) - (a.skor_keamanan || 0))
-    setKosanList(updatedKosanList)
-    setHasCalculatedSecurity(true)
-  }
+    updatedKosanList.sort(
+      (a, b) => (b.skor_keamanan || 0) - (a.skor_keamanan || 0)
+    );
+    setKosanList(updatedKosanList);
+    setHasCalculatedSecurity(true);
+  };
 
   const addKosan = async () => {
-  if (newKosan.nama && newKosan.harga > 0) {
-    try {
-      const res = await fetch("/api/kosan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newKosan),
-      })
+    if (newKosan.nama && newKosan.harga > 0) {
+      try {
+        const res = await fetch("/api/kosan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newKosan),
+        });
 
-      if (res.ok) {
-        const saved = await res.json()
-        setKosanList([...kosanList, { ...saved, id: saved.id.toString() }])
-        setNewKosan({
-          nama: "",
-          harga: 0,
-          jarak: 0,
-          fasilitas: 0,
-          rating: 0,
-          sistem_keamanan: 0,
-        })
-        alert("Kosan berhasil ditambahkan ke database!")
-      } else {
-        alert("Gagal menyimpan ke database.")
+        if (res.ok) {
+          const saved = await res.json();
+          setKosanList([...kosanList, { ...saved, id: saved.id.toString() }]);
+          setNewKosan({
+            nama: "",
+            harga: 0,
+            jarak: 0,
+            fasilitas: 0,
+            rating: 0,
+            sistem_keamanan: 0,
+          });
+          alert("Kosan berhasil ditambahkan ke database!");
+        } else {
+          alert("Gagal menyimpan ke database.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Terjadi kesalahan saat menyimpan ke database.");
       }
-    } catch (error) {
-      console.error(error)
-      alert("Terjadi kesalahan saat menyimpan ke database.")
     }
-  }
-}
-
+  };
 
   const removeKosan = (id: string) => {
-    setKosanList(kosanList.filter((kosan) => kosan.id !== id))
-    setHasCalculated(false)
-    setHasCalculatedSecurity(false)
-  }
+    setKosanList(kosanList.filter((kosan) => kosan.id !== id));
+    setHasCalculated(false);
+    setHasCalculatedSecurity(false);
+  };
 
   const chartData = kosanList.map((kosan) => ({
     nama: kosan.nama,
     skor: kosan.skor || 0,
-  }))
+  }));
 
   const securityChartData = kosanList.map((kosan) => ({
     nama: kosan.nama,
     skor: kosan.skor_keamanan || 0,
-  }))
+  }));
 
   const pieData = [
     { name: "Harga", value: bobot.harga, color: "#8b5cf6" },
     { name: "Jarak", value: bobot.jarak, color: "#06b6d4" },
     { name: "Fasilitas", value: bobot.fasilitas, color: "#10b981" },
     { name: "Rating", value: bobot.rating, color: "#f59e0b" },
-  ]
+  ];
 
   return (
     <div className="min-h-screen bg-background">
@@ -274,7 +322,9 @@ export default function DashboardPage() {
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Dashboard TOPSIS</h1>
-          <p className="text-muted-foreground">Kelola data kosan dan analisis dengan metode TOPSIS</p>
+          <p className="text-muted-foreground">
+            Kelola data kosan dan analisis dengan metode TOPSIS
+          </p>
         </div>
 
         <div className="grid md:grid-cols-4 gap-6 mb-8">
@@ -291,22 +341,31 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Kosan Terbaik</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Kosan Terbaik
+              </CardTitle>
               <Star className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                {hasCalculated && kosanList.length > 0 ? kosanList[0].nama : "-"}
+                {hasCalculated && kosanList.length > 0
+                  ? kosanList[0].nama
+                  : "-"}
               </div>
               <p className="text-xs text-muted-foreground">
-                Skor: {hasCalculated && kosanList.length > 0 ? kosanList[0].skor : "-"}
+                Skor:{" "}
+                {hasCalculated && kosanList.length > 0
+                  ? kosanList[0].skor
+                  : "-"}
               </p>
             </CardContent>
           </Card>
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Rata-rata Harga</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Rata-rata Harga
+              </CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
@@ -321,14 +380,20 @@ export default function DashboardPage() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Status Analisis</CardTitle>
+              <CardTitle className="text-sm font-medium">
+                Status Analisis
+              </CardTitle>
               <Calculator className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold">
-                <Badge variant={hasCalculated ? "default" : "secondary"}>{hasCalculated ? "Selesai" : "Belum"}</Badge>
+                <Badge variant={hasCalculated ? "default" : "secondary"}>
+                  {hasCalculated ? "Selesai" : "Belum"}
+                </Badge>
               </div>
-              <p className="text-xs text-muted-foreground">Perhitungan TOPSIS</p>
+              <p className="text-xs text-muted-foreground">
+                Perhitungan TOPSIS
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -354,7 +419,9 @@ export default function DashboardPage() {
                     <Input
                       id="nama"
                       value={newKosan.nama}
-                      onChange={(e) => setNewKosan({ ...newKosan, nama: e.target.value })}
+                      onChange={(e) =>
+                        setNewKosan({ ...newKosan, nama: e.target.value })
+                      }
                       placeholder="Masukkan nama kosan"
                     />
                   </div>
@@ -364,7 +431,12 @@ export default function DashboardPage() {
                       id="harga"
                       type="number"
                       value={newKosan.harga || ""}
-                      onChange={(e) => setNewKosan({ ...newKosan, harga: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setNewKosan({
+                          ...newKosan,
+                          harga: Number(e.target.value),
+                        })
+                      }
                       placeholder="800000"
                     />
                   </div>
@@ -375,7 +447,12 @@ export default function DashboardPage() {
                       type="number"
                       step="0.1"
                       value={newKosan.jarak || ""}
-                      onChange={(e) => setNewKosan({ ...newKosan, jarak: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setNewKosan({
+                          ...newKosan,
+                          jarak: Number(e.target.value),
+                        })
+                      }
                       placeholder="2.5"
                     />
                   </div>
@@ -387,7 +464,12 @@ export default function DashboardPage() {
                       min="1"
                       max="10"
                       value={newKosan.fasilitas || ""}
-                      onChange={(e) => setNewKosan({ ...newKosan, fasilitas: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setNewKosan({
+                          ...newKosan,
+                          fasilitas: Number(e.target.value),
+                        })
+                      }
                       placeholder="8"
                     />
                   </div>
@@ -400,7 +482,12 @@ export default function DashboardPage() {
                       max="5"
                       step="0.1"
                       value={newKosan.rating || ""}
-                      onChange={(e) => setNewKosan({ ...newKosan, rating: Number(e.target.value) })}
+                      onChange={(e) =>
+                        setNewKosan({
+                          ...newKosan,
+                          rating: Number(e.target.value),
+                        })
+                      }
                       placeholder="4.5"
                     />
                   </div>
@@ -420,10 +507,17 @@ export default function DashboardPage() {
                         min="1"
                         max="10"
                         value={newKosan.sistem_keamanan || ""}
-                        onChange={(e) => setNewKosan({ ...newKosan, sistem_keamanan: Number(e.target.value) })}
+                        onChange={(e) =>
+                          setNewKosan({
+                            ...newKosan,
+                            sistem_keamanan: Number(e.target.value),
+                          })
+                        }
                         placeholder="6"
                       />
-                      <p className="text-xs text-muted-foreground mt-1">CCTV, alarm, security guard, akses kontrol</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        CCTV, alarm, security guard, akses kontrol
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -455,14 +549,20 @@ export default function DashboardPage() {
                   <TableBody>
                     {kosanList.map((kosan) => (
                       <TableRow key={kosan.id}>
-                        <TableCell className="font-medium">{kosan.nama}</TableCell>
+                        <TableCell className="font-medium">
+                          {kosan.nama}
+                        </TableCell>
                         <TableCell>Rp {kosan.harga.toLocaleString()}</TableCell>
                         <TableCell>{kosan.jarak} km</TableCell>
                         <TableCell>{kosan.fasilitas}/10</TableCell>
                         <TableCell>{kosan.rating}/5</TableCell>
                         <TableCell>{kosan.sistem_keamanan}/10</TableCell>
                         <TableCell>
-                          <Button variant="outline" size="sm" onClick={() => removeKosan(kosan.id)}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => removeKosan(kosan.id)}
+                          >
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </TableCell>
@@ -492,7 +592,9 @@ export default function DashboardPage() {
                     </Label>
                     <Slider
                       value={[bobot.harga]}
-                      onValueChange={(value) => setBobot({ ...bobot, harga: value[0] })}
+                      onValueChange={(value) =>
+                        setBobot({ ...bobot, harga: value[0] })
+                      }
                       max={100}
                       step={5}
                       className="w-full"
@@ -505,7 +607,9 @@ export default function DashboardPage() {
                     </Label>
                     <Slider
                       value={[bobot.jarak]}
-                      onValueChange={(value) => setBobot({ ...bobot, jarak: value[0] })}
+                      onValueChange={(value) =>
+                        setBobot({ ...bobot, jarak: value[0] })
+                      }
                       max={100}
                       step={5}
                       className="w-full"
@@ -518,7 +622,9 @@ export default function DashboardPage() {
                     </Label>
                     <Slider
                       value={[bobot.fasilitas]}
-                      onValueChange={(value) => setBobot({ ...bobot, fasilitas: value[0] })}
+                      onValueChange={(value) =>
+                        setBobot({ ...bobot, fasilitas: value[0] })
+                      }
                       max={100}
                       step={5}
                       className="w-full"
@@ -531,7 +637,9 @@ export default function DashboardPage() {
                     </Label>
                     <Slider
                       value={[bobot.rating]}
-                      onValueChange={(value) => setBobot({ ...bobot, rating: value[0] })}
+                      onValueChange={(value) =>
+                        setBobot({ ...bobot, rating: value[0] })
+                      }
                       max={100}
                       step={5}
                       className="w-full"
@@ -569,10 +677,15 @@ export default function DashboardPage() {
                 <div>
                   <CardTitle>Hasil Analisis TOPSIS</CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    {hasCalculated ? "Perhitungan selesai" : "Klik tombol hitung untuk memulai analisis"}
+                    {hasCalculated
+                      ? "Perhitungan selesai"
+                      : "Klik tombol hitung untuk memulai analisis"}
                   </p>
                 </div>
-                <Button onClick={calculateTOPSIS} disabled={kosanList.length === 0}>
+                <Button
+                  onClick={calculateTOPSIS}
+                  disabled={kosanList.length === 0}
+                >
                   <Calculator className="h-4 w-4 mr-2" />
                   Hitung TOPSIS
                 </Button>
@@ -593,12 +706,21 @@ export default function DashboardPage() {
                         {kosanList.map((kosan, index) => (
                           <TableRow key={kosan.id}>
                             <TableCell>
-                              <Badge variant={index === 0 ? "default" : "secondary"}>#{index + 1}</Badge>
+                              <Badge
+                                variant={index === 0 ? "default" : "secondary"}
+                              >
+                                #{index + 1}
+                              </Badge>
                             </TableCell>
-                            <TableCell className="font-medium">{kosan.nama}</TableCell>
+                            <TableCell className="font-medium">
+                              {kosan.nama}
+                            </TableCell>
                             <TableCell>{kosan.skor}</TableCell>
                             <TableCell>
-                              <Progress value={(kosan.skor || 0) * 100} className="w-24" />
+                              <Progress
+                                value={(kosan.skor || 0) * 100}
+                                className="w-24"
+                              />
                             </TableCell>
                           </TableRow>
                         ))}
@@ -611,7 +733,9 @@ export default function DashboardPage() {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="nama" />
                           <YAxis />
-                          <Tooltip formatter={(value) => [value, "Skor TOPSIS"]} />
+                          <Tooltip
+                            formatter={(value) => [value, "Skor TOPSIS"]}
+                          />
                           <Bar dataKey="skor" fill="#8b5cf6" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -621,7 +745,8 @@ export default function DashboardPage() {
                   <div className="text-center py-12">
                     <Calculator className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                       Belum ada hasil analisis. Klik tombol &quot;Hitung TOPSIS&quot; untuk memulai.
+                      Belum ada hasil analisis. Klik tombol &quot;Hitung
+                      TOPSIS&quot; untuk memulai.
                     </p>
                   </div>
                 )}
@@ -643,7 +768,10 @@ export default function DashboardPage() {
                       : "Klik tombol hitung untuk memulai analisis sistem keamanan"}
                   </p>
                 </div>
-                <Button onClick={calculateSecurityTOPSIS} disabled={kosanList.length === 0}>
+                <Button
+                  onClick={calculateSecurityTOPSIS}
+                  disabled={kosanList.length === 0}
+                >
                   <Camera className="h-4 w-4 mr-2" />
                   Hitung Sistem Keamanan TOPSIS
                 </Button>
@@ -655,8 +783,9 @@ export default function DashboardPage() {
                     Kriteria Sistem Keamanan
                   </h4>
                   <p className="text-sm text-muted-foreground">
-                    Analisis ini fokus pada sistem keamanan yang meliputi: CCTV, sistem alarm, security guard, akses
-                    kontrol, dan teknologi keamanan lainnya yang tersedia di kosan.
+                    Analisis ini fokus pada sistem keamanan yang meliputi: CCTV,
+                    sistem alarm, security guard, akses kontrol, dan teknologi
+                    keamanan lainnya yang tersedia di kosan.
                   </p>
                 </div>
 
@@ -676,12 +805,21 @@ export default function DashboardPage() {
                         {kosanList.map((kosan, index) => (
                           <TableRow key={kosan.id}>
                             <TableCell>
-                              <Badge variant={index === 0 ? "default" : "secondary"}>#{index + 1}</Badge>
+                              <Badge
+                                variant={index === 0 ? "default" : "secondary"}
+                              >
+                                #{index + 1}
+                              </Badge>
                             </TableCell>
-                            <TableCell className="font-medium">{kosan.nama}</TableCell>
+                            <TableCell className="font-medium">
+                              {kosan.nama}
+                            </TableCell>
                             <TableCell>{kosan.skor_keamanan}</TableCell>
                             <TableCell>
-                              <Progress value={(kosan.skor_keamanan || 0) * 100} className="w-24" />
+                              <Progress
+                                value={(kosan.skor_keamanan || 0) * 100}
+                                className="w-24"
+                              />
                             </TableCell>
                             <TableCell>{kosan.sistem_keamanan}/10</TableCell>
                           </TableRow>
@@ -695,7 +833,12 @@ export default function DashboardPage() {
                           <CartesianGrid strokeDasharray="3 3" />
                           <XAxis dataKey="nama" />
                           <YAxis />
-                          <Tooltip formatter={(value) => [value, "Skor Sistem Keamanan TOPSIS"]} />
+                          <Tooltip
+                            formatter={(value) => [
+                              value,
+                              "Skor Sistem Keamanan TOPSIS",
+                            ]}
+                          />
                           <Bar dataKey="skor" fill="#10b981" />
                         </BarChart>
                       </ResponsiveContainer>
@@ -705,7 +848,8 @@ export default function DashboardPage() {
                   <div className="text-center py-12">
                     <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                       Belum ada hasil analisis sistem keamanan. Klik tombol &quot;Hitung Sistem Keamanan TOPSIS&quot; untuk memulai.
+                      Belum ada hasil analisis sistem keamanan. Klik tombol
+                      &quot;Hitung Sistem Keamanan TOPSIS&quot; untuk memulai.
                       memulai.
                     </p>
                   </div>
@@ -735,7 +879,8 @@ export default function DashboardPage() {
                 </div>
                 {!hasCalculated && (
                   <p className="text-sm text-muted-foreground">
-                    Lakukan perhitungan TOPSIS terlebih dahulu untuk mengaktifkan fitur ekspor.
+                    Lakukan perhitungan TOPSIS terlebih dahulu untuk
+                    mengaktifkan fitur ekspor.
                   </p>
                 )}
               </CardContent>
@@ -744,5 +889,5 @@ export default function DashboardPage() {
         </Tabs>
       </div>
     </div>
-  )
+  );
 }

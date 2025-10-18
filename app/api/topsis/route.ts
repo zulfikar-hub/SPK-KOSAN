@@ -5,7 +5,6 @@ const prisma = new PrismaClient();
 
 export async function GET() {
   try {
-    // Ambil data
     const kriteria = await prisma.kriteria.findMany();
     const kosan = await prisma.kosan.findMany();
 
@@ -16,19 +15,16 @@ export async function GET() {
       return NextResponse.json({ message: "Belum ada data kosan." });
     }
 
-    // infer tipe satu elemen kosan (supaya tidak perlu import tipe dari @prisma/client)
     type KosanRow = (typeof kosan)[number];
 
-    // 1) Buat matriks angka (number[][])
     const matrix: number[][] = kosan.map((k: KosanRow) => [
       Number(k.harga) || 0,
       Number(k.jarak) || 0,
       Number(k.fasilitas) || 0,
       Number(k.rating) || 0,
-      Number(k.keamanan) || 0,
+      Number(k.sistem_keamanan) || 0,
     ]);
 
-    // validasi: jumlah kolom harus sama dengan jumlah kriteria
     const nCols = matrix[0].length;
     if (nCols !== kriteria.length) {
       return NextResponse.json({
@@ -36,68 +32,51 @@ export async function GET() {
       });
     }
 
-    // 2) Hitung divisor per kolom (tipe lengkap di parameter)
     const divisor: number[] = matrix[0].map((_, j: number) =>
-      Math.sqrt(
-        matrix.reduce((sum: number, row: number[]) => sum + Math.pow(row[j], 2), 0)
-      ) || 1 // fallback ke 1 agar tidak dibagi 0
+      Math.sqrt(matrix.reduce((sum, row) => sum + Math.pow(row[j], 2), 0)) || 1
     );
 
-    // 3) Normalisasi
-    const normalized: number[][] = matrix.map((row: number[]) =>
-      row.map((val: number, j: number) => {
-        const d = divisor[j] || 1;
-        return (Number(val) || 0) / d;
-      })
+    const normalized: number[][] = matrix.map((row) =>
+      row.map((val, j) => (val || 0) / (divisor[j] || 1))
     );
 
-    // 4) Pembobotan (asumsi bobot sudah berupa angka yang ingin dikalikan)
-    const weighted: number[][] = normalized.map((row: number[]) =>
-      row.map((val: number, j: number) => {
-        const bobot = Number(kriteria[j]?.bobot) || 0;
-        return val * bobot;
-      })
+    const weighted: number[][] = normalized.map((row) =>
+      row.map((val, j) => val * (Number(kriteria[j]?.bobot) || 0))
     );
 
-    // 5) Solusi ideal positif & negatif
-    const idealPos: number[] = weighted[0].map((_, j: number) => {
-      const colVals = weighted.map((r: number[]) => r[j]);
-      return kriteria[j]?.tipe === "benefit" ? Math.max(...colVals) : Math.min(...colVals);
+    const idealPos = weighted[0].map((_, j) => {
+      const colVals = weighted.map((r) => r[j]);
+      return kriteria[j]?.tipe === "benefit"
+        ? Math.max(...colVals)
+        : Math.min(...colVals);
     });
 
-    const idealNeg: number[] = weighted[0].map((_, j: number) => {
-      const colVals = weighted.map((r: number[]) => r[j]);
-      return kriteria[j]?.tipe === "benefit" ? Math.min(...colVals) : Math.max(...colVals);
+    const idealNeg = weighted[0].map((_, j) => {
+      const colVals = weighted.map((r) => r[j]);
+      return kriteria[j]?.tipe === "benefit"
+        ? Math.min(...colVals)
+        : Math.max(...colVals);
     });
 
-    // 6) Jarak ke solusi ideal (tipe lengkap di reduce)
-    const distPos: number[] = weighted.map((row: number[]) =>
-      Math.sqrt(
-        row.reduce((sum: number, val: number, j: number) => sum + Math.pow((val ?? 0) - idealPos[j], 2), 0)
-      )
+    const distPos = weighted.map((row) =>
+      Math.sqrt(row.reduce((sum, val, j) => sum + Math.pow(val - idealPos[j], 2), 0))
     );
 
-    const distNeg: number[] = weighted.map((row: number[]) =>
-      Math.sqrt(
-        row.reduce((sum: number, val: number, j: number) => sum + Math.pow((val ?? 0) - idealNeg[j], 2), 0)
-      )
+    const distNeg = weighted.map((row) =>
+      Math.sqrt(row.reduce((sum, val, j) => sum + Math.pow(val - idealNeg[j], 2), 0))
     );
 
-    // 7) Preferensi
-    const preferensi: number[] = distPos.map((_, i: number) => {
+    const preferensi = distPos.map((_, i) => {
       const p = distPos[i] || 0;
       const n = distNeg[i] || 0;
       const denom = p + n;
       return denom === 0 ? 0 : n / denom;
     });
 
-    // 8) Simpan / upsert hasil ke DB
-    // NOTE: prisma.hasilTopsis expects the model name in camelCase
-    // and upsert requires a unique field in `where`. Pastikan id_kosan unik
     const hasil: HasilTopsis[] = await Promise.all(
       kosan.map((k: KosanRow, i: number) =>
         prisma.hasilTopsis.upsert({
-          where: { id_kosan: k.id_kosan }, // id_kosan harus ada constraint @unique di schema kalau pakai upsert
+          where: { id_kosan: k.id_kosan },
           update: { nilai_preferensi: preferensi[i], ranking: 0 },
           create: {
             id_kosan: k.id_kosan,
@@ -108,21 +87,18 @@ export async function GET() {
       )
     );
 
-    // 9) Urutkan dan update ranking
-    // beri tipenya supaya TypeScript tahu struktur item
-    const hasilWithPref = hasil.map((h: HasilTopsis, i: number) => ({
+    // 🟢 Cast Decimal ke number agar bisa di-sort
+    const hasilWithPref = hasil.map((h, i) => ({
       ...h,
-      // override nilai_preferensi supaya konsisten dengan preferensi array (casting ke number)
-      nilai_preferensi: preferensi[i] as unknown as any,
+      nilai_preferensi: Number(h.nilai_preferensi ?? preferensi[i]),
     }));
 
     const sorted = hasilWithPref.sort(
-      (a: HasilTopsis & { nilai_preferensi: number }, b: HasilTopsis & { nilai_preferensi: number }) =>
-        b.nilai_preferensi - a.nilai_preferensi
+      (a, b) => b.nilai_preferensi - a.nilai_preferensi
     );
 
     await Promise.all(
-      sorted.map((item: HasilTopsis, idx: number) =>
+      sorted.map((item, idx) =>
         prisma.hasilTopsis.update({
           where: { id_hasil: item.id_hasil },
           data: { ranking: idx + 1 },
@@ -130,7 +106,10 @@ export async function GET() {
       )
     );
 
-    return NextResponse.json({ message: "Perhitungan TOPSIS selesai", hasil: sorted });
+    return NextResponse.json({
+      message: "Perhitungan TOPSIS selesai",
+      hasil: sorted,
+    });
   } catch (err) {
     console.error("Error TOPSIS:", err);
     return NextResponse.json({ error: "Terjadi kesalahan server." }, { status: 500 });
