@@ -7,15 +7,16 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model hasiltopsis {
-  id_hasil         Int     @id @default(autoincrement())
-  id_kosan         Int     @unique(map: "HasilTopsis_id_kosan_key")
-  nilai_preferensi Decimal @db.Decimal(10, 4)
+model HasilTopsis {
+  id_hasil         Int      @id @default(autoincrement())
+  id_kosan         Int      @unique
+  nilai_preferensi Decimal  @db.Decimal(10, 4)
   ranking          Int
-  kosan            kosan   @relation(fields: [id_kosan], references: [id_kosan], onDelete: Cascade, map: "HasilTopsis_id_kosan_fkey")
+
+  kosan Kosan @relation(fields: [id_kosan], references: [id_kosan], onDelete: Cascade)
 }
 
-model kosan {
+model Kosan {
   id_kosan        Int          @id @default(autoincrement())
   nama            String       @db.VarChar(100)
   harga           Decimal      @db.Decimal(10, 2)
@@ -23,17 +24,18 @@ model kosan {
   fasilitas       Decimal      @db.Decimal(10, 2)
   rating          Decimal      @db.Decimal(10, 2)
   sistem_keamanan Decimal      @db.Decimal(10, 2)
-  hasiltopsis     hasiltopsis?
+
+  hasilTopsis     HasilTopsis?
 }
 
-model kriteria {
+model Kriteria {
   id_kriteria   Int           @id @default(autoincrement())
   nama_kriteria String        @db.VarChar(50)
   bobot         Decimal       @db.Decimal(5, 2)
-  tipe          kriteria_tipe
+  tipe          KriteriaTipe
 }
 
-enum kriteria_tipe {
+enum KriteriaTipe {
   benefit
   cost
 }

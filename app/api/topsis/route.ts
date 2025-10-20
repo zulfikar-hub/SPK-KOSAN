@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { PrismaClient, type HasilTopsis } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
@@ -15,66 +15,56 @@ export async function GET() {
       return NextResponse.json({ message: "Belum ada data kosan." });
     }
 
-    type KosanRow = (typeof kosan)[number];
-
-    const matrix: number[][] = kosan.map((k: KosanRow) => [
-      Number(k.harga) || 0,
-      Number(k.jarak) || 0,
-      Number(k.fasilitas) || 0,
-      Number(k.rating) || 0,
-      Number(k.sistem_keamanan) || 0,
+    const matrix = kosan.map((k) => [
+      Number(k.harga),
+      Number(k.jarak),
+      Number(k.fasilitas),
+      Number(k.rating),
+      Number(k.sistem_keamanan),
     ]);
 
-    const nCols = matrix[0].length;
-    if (nCols !== kriteria.length) {
-      return NextResponse.json({
-        error: `Jumlah kolom matriks (${nCols}) != jumlah kriteria (${kriteria.length}).`,
-      });
-    }
-
-    const divisor: number[] = matrix[0].map((_, j: number) =>
+    const divisor = matrix[0].map((_, j) =>
       Math.sqrt(matrix.reduce((sum, row) => sum + Math.pow(row[j], 2), 0)) || 1
     );
 
-    const normalized: number[][] = matrix.map((row) =>
-      row.map((val, j) => (val || 0) / (divisor[j] || 1))
+    const normalized = matrix.map((row) =>
+      row.map((val, j) => val / (divisor[j] || 1))
     );
 
-    const weighted: number[][] = normalized.map((row) =>
-      row.map((val, j) => val * (Number(kriteria[j]?.bobot) || 0))
+    const weighted = normalized.map((row) =>
+      row.map((val, j) => val * Number(kriteria[j]?.bobot || 0))
     );
 
     const idealPos = weighted[0].map((_, j) => {
-      const colVals = weighted.map((r) => r[j]);
+      const col = weighted.map((r) => r[j]);
       return kriteria[j]?.tipe === "benefit"
-        ? Math.max(...colVals)
-        : Math.min(...colVals);
+        ? Math.max(...col)
+        : Math.min(...col);
     });
 
     const idealNeg = weighted[0].map((_, j) => {
-      const colVals = weighted.map((r) => r[j]);
+      const col = weighted.map((r) => r[j]);
       return kriteria[j]?.tipe === "benefit"
-        ? Math.min(...colVals)
-        : Math.max(...colVals);
+        ? Math.min(...col)
+        : Math.max(...col);
     });
 
     const distPos = weighted.map((row) =>
       Math.sqrt(row.reduce((sum, val, j) => sum + Math.pow(val - idealPos[j], 2), 0))
     );
-
     const distNeg = weighted.map((row) =>
       Math.sqrt(row.reduce((sum, val, j) => sum + Math.pow(val - idealNeg[j], 2), 0))
     );
 
     const preferensi = distPos.map((_, i) => {
-      const p = distPos[i] || 0;
-      const n = distNeg[i] || 0;
-      const denom = p + n;
-      return denom === 0 ? 0 : n / denom;
+      const p = distPos[i];
+      const n = distNeg[i];
+      return p + n === 0 ? 0 : n / (p + n);
     });
 
-    const hasil: HasilTopsis[] = await Promise.all(
-      kosan.map((k: KosanRow, i: number) =>
+    // 🔁 Simpan/update hasil TOPSIS ke database
+    const hasil = await Promise.all(
+      kosan.map((k, i) =>
         prisma.hasilTopsis.upsert({
           where: { id_kosan: k.id_kosan },
           update: { nilai_preferensi: preferensi[i], ranking: 0 },
@@ -87,18 +77,18 @@ export async function GET() {
       )
     );
 
-    // 🟢 Cast Decimal ke number agar bisa di-sort
-    const hasilWithPref = hasil.map((h, i) => ({
-      ...h,
-      nilai_preferensi: Number(h.nilai_preferensi ?? preferensi[i]),
-    }));
+    // 🔢 Urutkan berdasarkan nilai preferensi
+    const hasilSorted = hasil
+      .map((h, i) => ({
+        ...h,
+        nama_kosan: kosan[i].nama, // ⬅️ Tambahkan nama kosan di sini
+        nilai_preferensi: Number(preferensi[i]),
+      }))
+      .sort((a, b) => b.nilai_preferensi - a.nilai_preferensi);
 
-    const sorted = hasilWithPref.sort(
-      (a, b) => b.nilai_preferensi - a.nilai_preferensi
-    );
-
+    // 🏆 Update ranking
     await Promise.all(
-      sorted.map((item, idx) =>
+      hasilSorted.map((item, idx) =>
         prisma.hasilTopsis.update({
           where: { id_hasil: item.id_hasil },
           data: { ranking: idx + 1 },
@@ -106,12 +96,22 @@ export async function GET() {
       )
     );
 
+    // 🎯 Format hasil agar hanya menampilkan yang dibutuhkan
+    const formatted = hasilSorted.map((h) => ({
+      ranking: h.ranking,
+      nama_kosan: h.nama_kosan,
+      nilai_preferensi: h.nilai_preferensi.toFixed(4),
+    }));
+
     return NextResponse.json({
-      message: "Perhitungan TOPSIS selesai",
-      hasil: sorted,
+      message: "✅ Perhitungan TOPSIS selesai",
+      hasil: formatted,
     });
   } catch (err) {
     console.error("Error TOPSIS:", err);
-    return NextResponse.json({ error: "Terjadi kesalahan server." }, { status: 500 });
+    return NextResponse.json(
+      { error: `Terjadi kesalahan server: ${err}` },
+      { status: 500 }
+    );
   }
 }
