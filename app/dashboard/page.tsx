@@ -583,7 +583,7 @@ export default function DashboardPage() {
                   {Object.values(bobot).reduce((a, b) => a + b, 0)}%)
                 </p>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-6"> 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
