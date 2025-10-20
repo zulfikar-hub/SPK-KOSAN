@@ -25,7 +25,14 @@ export async function POST(req: Request) {
     const { nama, harga, jarak, fasilitas, rating, sistem_keamanan } = body;
 
     // Validasi field wajib
-    if (!nama || !harga || !jarak || !fasilitas || !rating || !sistem_keamanan) {
+    if (
+      !nama ||
+      !harga ||
+      !jarak ||
+      !fasilitas ||
+      !rating ||
+      !sistem_keamanan
+    ) {
       return NextResponse.json(
         { error: "Semua field wajib diisi." },
         { status: 400 }
@@ -61,7 +68,8 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { id_kosan, nama, harga, jarak, fasilitas, rating, sistem_keamanan } = body;
+    const { id_kosan, nama, harga, jarak, fasilitas, rating, sistem_keamanan } =
+      body;
 
     if (!id_kosan) {
       return NextResponse.json(
@@ -87,10 +95,13 @@ export async function PUT(req: Request) {
         nama: nama ?? existing.nama,
         harga: harga !== undefined ? Number(harga) : existing.harga,
         jarak: jarak !== undefined ? Number(jarak) : existing.jarak,
-        fasilitas: fasilitas !== undefined ? Number(fasilitas) : existing.fasilitas,
+        fasilitas:
+          fasilitas !== undefined ? Number(fasilitas) : existing.fasilitas,
         rating: rating !== undefined ? Number(rating) : existing.rating,
         sistem_keamanan:
-          sistem_keamanan !== undefined ? Number(sistem_keamanan) : existing.sistem_keamanan,
+          sistem_keamanan !== undefined
+            ? Number(sistem_keamanan)
+            : existing.sistem_keamanan,
       },
     });
 
