@@ -70,7 +70,7 @@ interface Bobot {
   bobot: number;
 }
 
-
+// --- Fungsi bantu untuk warna kriteria ---
 
 export default function DashboardPage() {
   useEffect(() => {
@@ -87,7 +87,7 @@ export default function DashboardPage() {
     fetchKosan();
   }, []); 
 const [kriteriaList, setKriteriaList] = useState<Kriteria[]>([]);
-  const [kosanList, setKosanList] = useState<KosanData[]>([]);
+const [kosanList, setKosanList] = useState<KosanData[]>([]);
 const [newKosan, setNewKosan] = useState<Omit<KosanData, "id">>({
   nama: "",
   harga: 0,
@@ -281,49 +281,14 @@ const chartData = kosanList.map((kosan) => ({
 // (hapus securityChartData, karena keamanan sudah jadi bagian dari skor total)
 
 // === Pie Chart Data ===
-// Sekarang ambil bobot dari kriteriaList API, bukan variabel statis “bobot”
-const pieData =
-  Array.isArray(kriteriaList) && kriteriaList.length > 0
-    ? kriteriaList.map((kriteria) => {
-        const nama = (kriteria?.nama || "").toLowerCase();
-        const bobotValue =
-          typeof kriteria?.bobot === "number" && !isNaN(kriteria.bobot)
-            ? kriteria.bobot
-            : 0;
-
-        let color = "#9ca3af"; // warna default (abu-abu)
-        switch (nama) {
-          case "harga":
-            color = "#8b5cf6";
-            break;
-          case "jarak":
-            color = "#06b6d4";
-            break;
-          case "fasilitas":
-            color = "#f59e0b";
-            break;
-          case "rating":
-            color = "#10b981";
-            break;
-          case "sistem keamanan":
-            color = "#ef4444";
-            break;
-        }
-
-        return {
-          name: kriteria.nama || "Tanpa Nama",
-          value: bobotValue,
-          color,
-        };
-      })
-    : [
-        // fallback default biar pie chart tetap muncul meskipun data belum dimuat
-        { name: "Harga", value: 0, color: "#8b5cf6" },
-        { name: "Jarak", value: 0, color: "#06b6d4" },
-        { name: "Fasilitas", value: 0, color: "#f59e0b" },
-        { name: "Rating", value: 0, color: "#10b981" },
-        { name: "Sistem Keamanan", value: 0, color: "#ef4444" },
-      ];
+const kriteriaColors: Record<string, string> = {
+  harga: "#8b5cf6",
+  jarak: "#06b6d4",
+  fasilitas: "#f59e0b",
+  rating: "#10b981",
+  sistem_keamanan: "#ef4444",
+};
+      
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -584,120 +549,86 @@ const pieData =
           </TabsContent>
 
           <TabsContent value="bobot" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Pengaturan Bobot Kriteria</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Sesuaikan bobot setiap kriteria sesuai prioritas Anda (Total:{" "}
-                  {Object.values(bobot).reduce((a, b) => a + b, 0)}%)
-                </p>
-              </CardHeader>
-              <CardContent className="space-y-6"> 
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Harga ({bobot.harga}%)
-                    </Label>
-                    <Slider
-                      value={[bobot.harga]}
-                      onValueChange={(value) =>
-                        setBobot({ ...bobot, harga: value[0] })
-                      }
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4" />
-                      Jarak ({bobot.jarak}%)
-                    </Label>
-                    <Slider
-                      value={[bobot.jarak]}
-                      onValueChange={(value) =>
-                        setBobot({ ...bobot, jarak: value[0] })
-                      }
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Wifi className="h-4 w-4" />
-                      Fasilitas ({bobot.fasilitas}%)
-                    </Label>
-                    <Slider
-                      value={[bobot.fasilitas]}
-                      onValueChange={(value) =>
-                        setBobot({ ...bobot, fasilitas: value[0] })
-                      }
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
-                      <Star className="h-4 w-4" />
-                      Rating ({bobot.rating}%)
-                    </Label>
-                    <Slider
-                      value={[bobot.rating]}
-                      onValueChange={(value) =>
-                        setBobot({ ...bobot, rating: value[0] })
-                      }
-                      max={100}
-                      step={5}
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="space-y-2">
-  <Label className="flex items-center gap-2">
-    <Shield className="h-4 w-4" />
-    Sistem Keamanan ({bobot.sistem_keamanan}%)
-  </Label>
-  <Slider
-    value={[bobot.sistem_keamanan]}
-    onValueChange={(value) =>
-      setBobot({ ...bobot, sistem_keamanan: value[0] })
-    }
-    max={100}
-    step={5}
-    className="w-full"
-  />
-</div>
+  <Card>
+    <CardHeader>
+      <CardTitle>Pengaturan Bobot Kriteria</CardTitle>
+      <p className="text-sm text-muted-foreground">
+        Sesuaikan bobot setiap kriteria sesuai prioritas Anda (Total:{" "}
+        {Object.values(bobot).reduce((a, b) => a + b, 0)}%)
+      </p>
+    </CardHeader>
+    <CardContent className="space-y-6">
 
-                </div>
+      {/* Wrapper utama untuk slider */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {Object.entries(bobot).map(([key, value]) => {
+          const icons: Record<string, JSX.Element> = {
+            harga: <DollarSign className="h-4 w-4" />,
+            jarak: <MapPin className="h-4 w-4" />,
+            fasilitas: <Wifi className="h-4 w-4" />,
+            rating: <Star className="h-4 w-4" />,
+            sistem_keamanan: <Shield className="h-4 w-4" />,
+          };
 
-               <div className="h-64">
-  <ResponsiveContainer width="100%" height="100%">
-    <PieChart>
-      <Pie
-        data={pieData}
-        cx="50%"
-        cy="50%"
-        innerRadius={60}
-        outerRadius={100}
-        paddingAngle={5}
-        dataKey="value"
-        label={({ name, value }) => `${name}: ${value}%`}
-      >
-        {pieData.map((entry, index) => (
-          <Cell key={`cell-${index}`} fill={entry.color} />
-        ))}
-      </Pie>
-      <Tooltip formatter={(value: number) => `${value.toFixed(2)}%`} />
-    </PieChart>
-  </ResponsiveContainer>
-</div>
+          // Hanya return satu elemen parent <div> per kriteria
+          return (
+            <div key={key} className="space-y-2">
+              <Label className="flex items-center gap-2">
+                {icons[key] || null}
+                {key
+                  .split("_")
+                  .map((w) => w[0].toUpperCase() + w.slice(1))
+                  .join(" ")}{" "}
+                ({value}%)
+              </Label>
+              <Slider
+                value={[value]}
+                onValueChange={(v) =>
+                  setBobot({ ...bobot, [key]: v[0] })
+                }
+                max={100}
+                step={5}
+                className="w-full"
+              />
+            </div>
+          );
+        })}
+      </div>
 
+      {/* Pie Chart */}
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie
+              data={Object.entries(bobot).map(([key, value]) => ({
+                name: key
+                  .split("_")
+                  .map((w) => w[0].toUpperCase() + w.slice(1))
+                  .join(" "),
+                value,
+                color: kriteriaColors[key],
+              }))}
+              cx="50%"
+              cy="50%"
+              innerRadius={60}
+              outerRadius={100}
+              paddingAngle={5}
+              dataKey="value"
+              label={({ name, value }) => `${name}: ${value}%`}
+            >
+              {Object.entries(bobot).map(([key], index) => (
+                <Cell key={`cell-${index}`} fill={kriteriaColors[key]} />
+              ))}
+            </Pie>
+            <Tooltip formatter={(value: number) => `${value}%`} />
+          </PieChart>
+        </ResponsiveContainer>
+      </div>
 
-              </CardContent>
-            </Card>
-          </TabsContent>
+    </CardContent>
+  </Card>
+</TabsContent>
+
 
           <TabsContent value="hasil" className="space-y-6">
             <Card>
