@@ -64,7 +64,7 @@ interface Bobot {
   sistem_keamanan: number;
 }
 
-  interface Kriteria {
+interface Kriteria {
   id: number;
   nama: string;
   bobot: number;
@@ -85,137 +85,165 @@ export default function DashboardPage() {
     };
 
     fetchKosan();
-  }, []); 
-const [kriteriaList, setKriteriaList] = useState<Kriteria[]>([]);
-const [kosanList, setKosanList] = useState<KosanData[]>([]);
-const [newKosan, setNewKosan] = useState<Omit<KosanData, "id">>({
-  nama: "",
-  harga: 0,
-  jarak: 0,
-  fasilitas: 0,
-  rating: 0,
-  sistem_keamanan: 0,
-});
-const [hasCalculated, setHasCalculated] = useState(false);
-const [bobot, setBobot] = useState<Bobot>({
-  harga: 25,
-  jarak: 20,
-  fasilitas: 20,
-  rating: 15,
-  sistem_keamanan: 20,
-});
-
-
-useEffect(() => {
-  const fetchKriteria = async () => {
-    try {
-      const res = await fetch("/api/kriteria");
-      const data = await res.json();
-      setKriteriaList(data);
-    } catch (error) {
-      console.error("Gagal ambil data kriteria:", error);
-    }
-  };
-
-  fetchKriteria();
-}, []);
-
-// === FUNGSI TOPSIS ===
-const calculateTOPSIS = () => {
-  if (kosanList.length === 0 || kriteriaList.length === 0) return;
-
-  // Ubah data kriteria jadi bentuk objek (biar mudah dipanggil)
-  const bobotMap = Object.fromEntries(
-    kriteriaList.map((item) => [item.nama.toLowerCase(), item.bobot])
+  }, []);
+  const [kriteriaList, setKriteriaList] = useState<Kriteria[]>([]);
+  const [bobotSementara, setBobotSementara] = useState<Record<string, number>>(
+    {}
   );
+  const [kosanList, setKosanList] = useState<KosanData[]>([]);
+  const [newKosan, setNewKosan] = useState<Omit<KosanData, "id">>({
+    nama: "",
+    harga: 0,
+    jarak: 0,
+    fasilitas: 0,
+    rating: 0,
+    sistem_keamanan: 0,
+  });
+  const [hasCalculated, setHasCalculated] = useState(false);
 
-  // --- NORMALISASI ---
-  const normalizedMatrix = kosanList.map((kosan) => {
-    const hargaNorm =
-      kosan.harga /
-      Math.sqrt(kosanList.reduce((sum, k) => sum + k.harga ** 2, 0));
+  useEffect(() => {
+    const fetchKriteria = async () => {
+      try {
+        const res = await fetch("/api/kriteria");
+        const data = await res.json();
+        console.log("🔥 Data dari /api/kriteria:", data); // 👈 CEK di console
+        setKriteriaList(data);
 
-    const jarakNorm =
-      kosan.jarak /
-      Math.sqrt(kosanList.reduce((sum, k) => sum + k.jarak ** 2, 0));
+        const initialBobot = Array.isArray(data)
+          ? data.reduce(
+              (acc, item) => {
+                if (item?.nama && item?.bobot) {
+                  acc[item.nama.toLowerCase().replace(/\s+/g, "_")] =
+                    item.bobot;
+                }
+                return acc;
+              },
+              {} as Record<string, number>
+            )
+          : {};
+        setBobotSementara(initialBobot);
+      } catch (err) {
+        console.error("Gagal ambil data kriteria:", err);
+      }
+    };
+    fetchKriteria();
+  }, []);
 
-    const fasilitasNorm =
-      kosan.fasilitas /
-      Math.sqrt(kosanList.reduce((sum, k) => sum + k.fasilitas ** 2, 0));
+  // === FUNGSI TOPSIS ===
+  const calculateTOPSIS = () => {
+    if (kosanList.length === 0) return;
 
-    const ratingNorm =
-      kosan.rating /
-      Math.sqrt(kosanList.reduce((sum, k) => sum + k.rating ** 2, 0));
+    // === 1) Bangun bobotMap dengan pengecekan tipe yang aman ===
+    const bobotMap = (Array.isArray(kriteriaList) ? kriteriaList : []).reduce<
+      Record<string, number>
+    >((acc, item) => {
+      if (
+        typeof item === "object" &&
+        item !== null &&
+        "nama" in item &&
+        "bobot" in item
+      ) {
+        const nama = String((item as { nama: unknown }).nama);
+        const bobot = Number((item as { bobot: unknown }).bobot);
+        const key = nama.toLowerCase().replace(/\s+/g, "_");
+        acc[key] = bobot;
+      }
+      return acc;
+    }, {});
 
-    const sistemKeamananNorm =
-      kosan.sistem_keamanan /
-      Math.sqrt(
-        kosanList.reduce((sum, k) => sum + k.sistem_keamanan ** 2, 0)
+    // jika bobotMap kosong, fallback ke state lokal bobot (agar UI slider tetap berpengaruh)
+    // pastikan keys juga seragam: gunakan key lowercase dengan underscore
+    const getWeight = (key: keyof Bobot) => bobotMap[key] ?? bobot[key] ?? 0; // angka dalam persen, mis: 20
+
+    // --- NORMALISASI ---
+    const normalizedMatrix = kosanList.map((kosan) => {
+      const hargaNorm =
+        kosan.harga /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.harga ** 2, 0) || 1);
+
+      const jarakNorm =
+        kosan.jarak /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.jarak ** 2, 0) || 1);
+
+      const fasilitasNorm =
+        kosan.fasilitas /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.fasilitas ** 2, 0) || 1);
+
+      const ratingNorm =
+        kosan.rating /
+        Math.sqrt(kosanList.reduce((sum, k) => sum + k.rating ** 2, 0) || 1);
+
+      const sistem_KeamananNorm =
+        kosan.sistem_keamanan /
+        Math.sqrt(
+          kosanList.reduce((sum, k) => sum + k.sistem_keamanan ** 2, 0) || 1
+        );
+
+      return {
+        ...kosan,
+        hargaNorm,
+        jarakNorm,
+        fasilitasNorm,
+        ratingNorm,
+        sistem_KeamananNorm,
+      };
+    });
+
+    // --- PEMBOBOTAN (pakai getWeight dan bagi 100 karena bobot disimpan persen) ---
+    const weightedMatrix = normalizedMatrix.map((kosan) => ({
+      ...kosan,
+      hargaWeighted: kosan.hargaNorm * (getWeight("harga") / 100),
+      jarakWeighted: kosan.jarakNorm * (getWeight("jarak") / 100),
+      fasilitasWeighted: kosan.fasilitasNorm * (getWeight("fasilitas") / 100),
+      ratingWeighted: kosan.ratingNorm * (getWeight("rating") / 100),
+      sistem_KeamananWeighted:
+        kosan.sistem_KeamananNorm * (getWeight("sistem_keamanan") / 100),
+    }));
+
+    // --- SOLUSI IDEAL & NEGATIF ---
+    const idealSolution = {
+      harga: Math.min(...weightedMatrix.map((k) => k.hargaWeighted)),
+      jarak: Math.min(...weightedMatrix.map((k) => k.jarakWeighted)),
+      fasilitas: Math.max(...weightedMatrix.map((k) => k.fasilitasWeighted)),
+      rating: Math.max(...weightedMatrix.map((k) => k.ratingWeighted)),
+      sistem_keamanan: Math.max(
+        ...weightedMatrix.map((k) => k.sistem_KeamananWeighted)
+      ),
+    };
+
+    const negativeIdealSolution = {
+      harga: Math.max(...weightedMatrix.map((k) => k.hargaWeighted)),
+      jarak: Math.max(...weightedMatrix.map((k) => k.jarakWeighted)),
+      fasilitas: Math.min(...weightedMatrix.map((k) => k.fasilitasWeighted)),
+      rating: Math.min(...weightedMatrix.map((k) => k.ratingWeighted)),
+      sistem_keamanan: Math.min(
+        ...weightedMatrix.map((k) => k.sistem_KeamananWeighted)
+      ),
+    };
+
+    // --- HITUNG SKOR AKHIR ---
+    const updatedKosanList = weightedMatrix.map((kosan) => {
+      const distanceToIdeal = Math.sqrt(
+        (kosan.hargaWeighted - idealSolution.harga) ** 2 +
+          (kosan.jarakWeighted - idealSolution.jarak) ** 2 +
+          (kosan.fasilitasWeighted - idealSolution.fasilitas) ** 2 +
+          (kosan.ratingWeighted - idealSolution.rating) ** 2 +
+          (kosan.sistem_KeamananWeighted - idealSolution.sistem_keamanan) ** 2
       );
 
-    return {
-      ...kosan,
-      hargaNorm,
-      jarakNorm,
-      fasilitasNorm,
-      ratingNorm,
-      sistemKeamananNorm,
-    };
-  });
+      const distanceToNegativeIdeal = Math.sqrt(
+        (kosan.hargaWeighted - negativeIdealSolution.harga) ** 2 +
+          (kosan.jarakWeighted - negativeIdealSolution.jarak) ** 2 +
+          (kosan.fasilitasWeighted - negativeIdealSolution.fasilitas) ** 2 +
+          (kosan.ratingWeighted - negativeIdealSolution.rating) ** 2 +
+          (kosan.sistem_KeamananWeighted -
+            negativeIdealSolution.sistem_keamanan) **
+            2
+      );
 
-  // --- PEMBOBOTAN ---
-  const weightedMatrix = normalizedMatrix.map((kosan) => ({
-    ...kosan,
-    hargaWeighted: kosan.hargaNorm * (bobotMap.harga / 100),
-    jarakWeighted: kosan.jarakNorm * (bobotMap.jarak / 100),
-    fasilitasWeighted: kosan.fasilitasNorm * (bobotMap.fasilitas / 100),
-    ratingWeighted: kosan.ratingNorm * (bobotMap.rating / 100),
-    sistemKeamananWeighted:
-      kosan.sistemKeamananNorm * (bobotMap.sistem_keamanan / 100),
-  }));
-
-  // --- SOLUSI IDEAL & NEGATIF ---
-  const idealSolution = {
-    harga: Math.min(...weightedMatrix.map((k) => k.hargaWeighted)), // cost
-    jarak: Math.min(...weightedMatrix.map((k) => k.jarakWeighted)), // cost
-    fasilitas: Math.max(...weightedMatrix.map((k) => k.fasilitasWeighted)), // benefit
-    rating: Math.max(...weightedMatrix.map((k) => k.ratingWeighted)), // benefit
-    sistem_keamanan: Math.max(
-      ...weightedMatrix.map((k) => k.sistemKeamananWeighted)
-    ), // benefit
-  };
-
-  const negativeIdealSolution = {
-    harga: Math.max(...weightedMatrix.map((k) => k.hargaWeighted)),
-    jarak: Math.max(...weightedMatrix.map((k) => k.jarakWeighted)),
-    fasilitas: Math.min(...weightedMatrix.map((k) => k.fasilitasWeighted)),
-    rating: Math.min(...weightedMatrix.map((k) => k.ratingWeighted)),
-    sistem_keamanan: Math.min(
-      ...weightedMatrix.map((k) => k.sistemKeamananWeighted)
-    ),
-  };
-
-  // --- HITUNG SKOR AKHIR ---
-  const updatedKosanList = weightedMatrix.map((kosan) => {
-    const distanceToIdeal = Math.sqrt(
-      (kosan.hargaWeighted - idealSolution.harga) ** 2 +
-        (kosan.jarakWeighted - idealSolution.jarak) ** 2 +
-        (kosan.fasilitasWeighted - idealSolution.fasilitas) ** 2 +
-        (kosan.ratingWeighted - idealSolution.rating) ** 2 +
-        (kosan.sistemKeamananWeighted - idealSolution.sistem_keamanan) ** 2
-    );
-
-    const distanceToNegativeIdeal = Math.sqrt(
-      (kosan.hargaWeighted - negativeIdealSolution.harga) ** 2 +
-        (kosan.jarakWeighted - negativeIdealSolution.jarak) ** 2 +
-        (kosan.fasilitasWeighted - negativeIdealSolution.fasilitas) ** 2 +
-        (kosan.ratingWeighted - negativeIdealSolution.rating) ** 2 +
-        (kosan.sistemKeamananWeighted -
-          negativeIdealSolution.sistem_keamanan) ** 2
-    );
-
-    const skor =
-      distanceToNegativeIdeal / (distanceToIdeal + distanceToNegativeIdeal);
+      const skor =
+        distanceToNegativeIdeal /
+        (distanceToIdeal + distanceToNegativeIdeal || 1);
 
       return {
         id: kosan.id,
@@ -234,61 +262,64 @@ const calculateTOPSIS = () => {
     setKosanList(updatedKosanList);
     setHasCalculated(true);
   };
-// === Fungsi Tambah Kosan ===
-const addKosan = async () => {
-  if (newKosan.nama && newKosan.harga > 0) {
-    try {
-      const res = await fetch("/api/kosan", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(newKosan),
-      });
 
-      if (res.ok) {
-        const saved = await res.json();
-        setKosanList([...kosanList, { ...saved, id: saved.id.toString() }]);
-        setNewKosan({
-          nama: "",
-          harga: 0,
-          jarak: 0,
-          fasilitas: 0,
-          rating: 0,
-          sistem_keamanan: 0,
+  // === Fungsi Tambah Kosan ===
+  const addKosan = async () => {
+    if (newKosan.nama && newKosan.harga > 0) {
+      try {
+        const res = await fetch("/api/kosan", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(newKosan),
         });
-        alert("Kosan berhasil ditambahkan ke database!");
-      } else {
-        alert("Gagal menyimpan ke database.");
+
+        if (res.ok) {
+          const saved = await res.json();
+          setKosanList([
+            ...kosanList,
+            { ...saved, id: saved?.id?.toString?.() ?? Date.now().toString() },
+          ]);
+          setNewKosan({
+            nama: "",
+            harga: 0,
+            jarak: 0,
+            fasilitas: 0,
+            rating: 0,
+            sistem_keamanan: 0,
+          });
+          alert("Kosan berhasil ditambahkan ke database!");
+        } else {
+          alert("Gagal menyimpan ke database.");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Terjadi kesalahan saat menyimpan ke database.");
       }
-    } catch (error) {
-      console.error(error);
-      alert("Terjadi kesalahan saat menyimpan ke database.");
     }
-  }
-};
+  };
 
-// === Fungsi Hapus Kosan ===
-const removeKosan = (id: string) => {
-  setKosanList(kosanList.filter((kosan) => kosan.id !== id));
-  setHasCalculated(false);
-};
+  // === Fungsi Hapus Kosan ===
+  const removeKosan = (id: string) => {
+    setKosanList(kosanList.filter((kosan) => kosan.id !== id));
+    setHasCalculated(false);
+  };
 
-// === Data Chart ===
-const chartData = kosanList.map((kosan) => ({
-  nama: kosan.nama,
-  skor: kosan.skor || 0,
-}));
+  // === Data Chart ===
+  const chartData = kosanList.map((kosan) => ({
+    nama: kosan.nama,
+    skor: kosan.skor || 0,
+  }));
+  const bobot: Bobot = {
+    harga: bobotSementara.harga ?? 25,
+    jarak: bobotSementara.jarak ?? 20,
+    fasilitas: bobotSementara.fasilitas ?? 20,
+    rating: bobotSementara.rating ?? 15,
+    sistem_keamanan: bobotSementara.sistem_keamanan ?? 20,
+  };
+  const totalBobot = kriteriaList.length > 0
+  ? kriteriaList.reduce((sum, k) => sum + (k.bobot ?? 0) * 100, 0)
+  : Object.values(bobotSementara).reduce((sum, v) => sum + (v ?? 0) * 100, 0);
 
-// (hapus securityChartData, karena keamanan sudah jadi bagian dari skor total)
-
-// === Pie Chart Data ===
-const kriteriaColors: Record<string, string> = {
-  harga: "#8b5cf6",
-  jarak: "#06b6d4",
-  fasilitas: "#f59e0b",
-  rating: "#10b981",
-  sistem_keamanan: "#ef4444",
-};
-      
   return (
     <div className="min-h-screen bg-background">
       <Navigation />
@@ -553,60 +584,109 @@ const kriteriaColors: Record<string, string> = {
     <CardHeader>
       <CardTitle>Pengaturan Bobot Kriteria</CardTitle>
       <p className="text-sm text-muted-foreground">
-        Sesuaikan bobot setiap kriteria sesuai prioritas Anda (Total:{" "}
-        {Object.values(bobot).reduce((a, b) => a + b, 0)}%)
+        Sesuaikan bobot setiap kriteria sesuai prioritas Anda (Total: {totalBobot}%)
       </p>
     </CardHeader>
-    <CardContent className="space-y-6">
 
-      {/* Wrapper utama untuk slider */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {Object.entries(bobot).map(([key, value]) => {
+    <CardContent className="space-y-6">
+      {/* Grid Slider */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {(kriteriaList.length > 0
+          ? kriteriaList
+          : Object.entries(bobotSementara).map(([nama, bobot]) => ({ nama, bobot }))
+        ).map((k) => {
+          const keyNormalized = (k.nama ?? "").toLowerCase().replace(/\s+/g, "_");
+          const sliderValue = kriteriaList.length > 0
+            ? k.bobot ?? 0
+            : bobotSementara[keyNormalized] ?? 0;
+
           const icons: Record<string, JSX.Element> = {
-            harga: <DollarSign className="h-4 w-4" />,
-            jarak: <MapPin className="h-4 w-4" />,
-            fasilitas: <Wifi className="h-4 w-4" />,
-            rating: <Star className="h-4 w-4" />,
-            sistem_keamanan: <Shield className="h-4 w-4" />,
+            harga: <DollarSign className="h-6 w-6 text-purple-600" />,
+            jarak: <MapPin className="h-6 w-6 text-cyan-500" />,
+            fasilitas: <Wifi className="h-6 w-6 text-yellow-500" />,
+            rating: <Star className="h-6 w-6 text-green-500" />,
+            sistem_keamanan: <Shield className="h-6 w-6 text-red-500" />,
           };
 
-          // Hanya return satu elemen parent <div> per kriteria
           return (
-            <div key={key} className="space-y-2">
-              <Label className="flex items-center gap-2">
-                {icons[key] || null}
-                {key
-                  .split("_")
-                  .map((w) => w[0].toUpperCase() + w.slice(1))
-                  .join(" ")}{" "}
-                ({value}%)
-              </Label>
+            <div
+              key={keyNormalized}
+              className="bg-white p-4 rounded-xl shadow flex flex-col items-center"
+            >
+              {/* Icon & Name */}
+              <div className="flex flex-col items-center mb-3">
+                {icons[keyNormalized] || null}
+                <span className="font-medium text-gray-700 mt-1 text-center">
+                  {keyNormalized
+                    .split("_")
+                    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
+                    .join(" ")}
+                </span>
+              </div>
+
+              {/* Slider */}
               <Slider
-                value={[value]}
-                onValueChange={(v) =>
-                  setBobot({ ...bobot, [key]: v[0] })
-                }
+                value={[sliderValue * 100]}
+                onValueChange={(v) => {
+                  const newValue = v[0] / 100;
+
+                  // Batasi total bobot max 100%
+                  const otherTotal = (kriteriaList.length > 0
+                    ? kriteriaList.reduce((sum, item) => {
+                        const key = (item.nama ?? "").toLowerCase().replace(/\s+/g, "_");
+                        return key === keyNormalized ? sum : sum + (item.bobot ?? 0);
+                      }, 0)
+                    : Object.entries(bobotSementara).reduce((sum, [name, val]) => {
+                        return name === keyNormalized ? sum : sum + (val ?? 0);
+                      }, 0)
+                  );
+                  const maxValue = Math.min(newValue, 1 - otherTotal);
+
+                  if (kriteriaList.length > 0) {
+                    setKriteriaList((prev) =>
+                      prev.map((item) =>
+                        (item.nama ?? "").toLowerCase().replace(/\s+/g, "_") === keyNormalized
+                          ? { ...item, bobot: maxValue }
+                          : item
+                      )
+                    );
+                  } else {
+                    setBobotSementara((prev) => ({
+                      ...prev,
+                      [keyNormalized]: maxValue,
+                    }));
+                  }
+                }}
                 max={100}
                 step={5}
-                className="w-full"
+                className="w-full mt-2"
               />
+
+              {/* Persen */}
+              <div className="mt-1 text-sm font-medium">{(sliderValue * 100).toFixed(0)}%</div>
             </div>
           );
         })}
       </div>
 
+      {/* Total Bobot */}
+      <div className="text-right font-medium">
+        Total Bobot: <span className={totalBobot === 100 ? "text-green-600" : "text-red-500"}>{totalBobot}%</span>
+      </div>
+
       {/* Pie Chart */}
-      <div className="h-64">
+      <div className="h-64 mt-4">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
             <Pie
-              data={Object.entries(bobot).map(([key, value]) => ({
-                name: key
-                  .split("_")
-                  .map((w) => w[0].toUpperCase() + w.slice(1))
-                  .join(" "),
-                value,
-                color: kriteriaColors[key],
+              data={kriteriaList.length > 0 ? kriteriaList.map(k => ({
+                key: k.nama,
+                value: k.bobot ?? 0,
+                displayValue: ((k.bobot ?? 0) * 100).toFixed(0)
+              })) : Object.entries(bobotSementara).map(([nama, val]) => ({
+                key: nama,
+                value: val,
+                displayValue: (val * 100).toFixed(0)
               }))}
               cx="50%"
               cy="50%"
@@ -614,20 +694,33 @@ const kriteriaColors: Record<string, string> = {
               outerRadius={100}
               paddingAngle={5}
               dataKey="value"
-              label={({ name, value }) => `${name}: ${value}%`}
+              label={({ payload }) => `${payload.key}: ${payload.displayValue}%`}
             >
-              {Object.entries(bobot).map(([key], index) => (
-                <Cell key={`cell-${index}`} fill={kriteriaColors[key]} />
-              ))}
+              {(kriteriaList.length > 0 ? kriteriaList : Object.entries(bobotSementara).map(([n, v]) => ({ nama: n, bobot: v }))).map((k, index) => {
+                const lower = (k.nama ?? "").toLowerCase();
+                const color =
+                  lower === "harga"
+                    ? "#8b5cf6"
+                    : lower === "jarak"
+                      ? "#06b6d4"
+                      : lower === "fasilitas"
+                        ? "#f59e0b"
+                        : lower === "rating"
+                          ? "#10b981"
+                          : lower === "sistem_keamanan"
+                            ? "#ef4444"
+                            : "#9ca3af";
+                return <Cell key={`cell-${index}`} fill={color} />;
+              })}
             </Pie>
-            <Tooltip formatter={(value: number) => `${value}%`} />
+            <Tooltip formatter={(value: number) => `${(value * 100).toFixed(0)}%`} />
           </PieChart>
         </ResponsiveContainer>
       </div>
-
     </CardContent>
   </Card>
 </TabsContent>
+
 
 
           <TabsContent value="hasil" className="space-y-6">
@@ -714,37 +807,36 @@ const kriteriaColors: Record<string, string> = {
           </TabsContent>
 
           <TabsContent value="keamanan" className="space-y-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>
-        <Camera className="h-5 w-5 text-primary" />
-        Analisis Sistem Keamanan
-      </CardTitle>
-      <p className="text-sm text-muted-foreground">
-        Nilai keamanan tiap kosan berdasarkan hasil TOPSIS gabungan.
-      </p>
-    </CardHeader>
-    <CardContent>
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Nama Kosan</TableHead>
-            <TableHead>Nilai Sistem Keamanan</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {kosanList.map((k) => (
-            <TableRow key={k.id}>
-              <TableCell>{k.nama}</TableCell>
-              <TableCell>{k.sistem_keamanan}</TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </CardContent>
-  </Card>
-</TabsContent>
-
+            <Card>
+              <CardHeader>
+                <CardTitle>
+                  <Camera className="h-5 w-5 text-primary" />
+                  Analisis Sistem Keamanan
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Nilai keamanan tiap kosan berdasarkan hasil TOPSIS gabungan.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nama Kosan</TableHead>
+                      <TableHead>Nilai Sistem Keamanan</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {kosanList.map((k) => (
+                      <TableRow key={k.id}>
+                        <TableCell>{k.nama}</TableCell>
+                        <TableCell>{k.sistem_keamanan}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
           <TabsContent value="laporan" className="space-y-6">
             <Card>
