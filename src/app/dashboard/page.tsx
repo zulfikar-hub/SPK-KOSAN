@@ -66,7 +66,8 @@ interface Bobot {
 
 interface Kriteria {
   id: number;
-  nama: string;
+  nama?: string;
+  nama_kriteria?: string;
   bobot: number;
 }
 
@@ -316,9 +317,29 @@ export default function DashboardPage() {
     rating: bobotSementara.rating ?? 15,
     sistem_keamanan: bobotSementara.sistem_keamanan ?? 20,
   };
-  const totalBobot = kriteriaList.length > 0
-  ? kriteriaList.reduce((sum, k) => sum + (k.bobot ?? 0) * 100, 0)
-  : Object.values(bobotSementara).reduce((sum, v) => sum + (v ?? 0) * 100, 0);
+  const totalBobot =
+    kriteriaList.length > 0
+      ? kriteriaList.reduce((sum, k) => sum + (k.bobot ?? 0) * 100, 0)
+      : Object.values(bobotSementara).reduce(
+          (sum, v) => sum + (v ?? 0) * 100,
+          0
+        );
+ // Ganti warna tiap segmen
+  // const COLORS = ["#8b5cf6", "#06b6d4", "#f59e0b", "#10b981", "#ef4444"];
+
+  const icons: Record<string, JSX.Element> = {
+    harga: <DollarSign className="h-6 w-6 text-purple-600" />,
+    jarak: <MapPin className="h-6 w-6 text-cyan-500" />,
+    fasilitas: <Wifi className="h-6 w-6 text-yellow-500" />,
+    rating: <Star className="h-6 w-6 text-green-500" />,
+    sistem_keamanan: <Shield className="h-6 w-6 text-red-500" />,
+  };
+  // Fungsi ubah slider
+  const handleSliderChange = (index: number, newValue: number) => {
+    const updated = [...kriteriaList];
+    updated[index].bobot = newValue / 100; // Simpan dalam bentuk 0.2 tapi tampil 20%
+    setKriteriaList(updated);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -580,148 +601,146 @@ export default function DashboardPage() {
           </TabsContent>
 
           <TabsContent value="bobot" className="space-y-6">
-  <Card>
-    <CardHeader>
-      <CardTitle>Pengaturan Bobot Kriteria</CardTitle>
-      <p className="text-sm text-muted-foreground">
-        Sesuaikan bobot setiap kriteria sesuai prioritas Anda (Total: {totalBobot}%)
-      </p>
-    </CardHeader>
+            <Card>
+      <CardHeader>
+        <CardTitle>Pengaturan Bobot Kriteria</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Sesuaikan bobot setiap kriteria sesuai prioritas Anda (Total:{" "}
+          {totalBobot}%)
+        </p>
+      </CardHeader>
 
-    <CardContent className="space-y-6">
-      {/* Grid Slider */}
-      <div className="grid md:grid-cols-3 gap-6">
-        {(kriteriaList.length > 0
-          ? kriteriaList
-          : Object.entries(bobotSementara).map(([nama, bobot]) => ({ nama, bobot }))
-        ).map((k) => {
-          const keyNormalized = (k.nama ?? "").toLowerCase().replace(/\s+/g, "_");
-          const sliderValue = kriteriaList.length > 0
-            ? k.bobot ?? 0
-            : bobotSementara[keyNormalized] ?? 0;
+      <CardContent className="space-y-6">
+        {/* Grid Slider */}
+        <div className="grid md:grid-cols-3 gap-6">
+  {kriteriaList.map((k, index) => {
+    // ✅ Ganti baris ini dengan versi yang lebih aman
+    const keyNormalized = (k.nama ?? k.nama_kriteria ?? "")
+      .toLowerCase()
+      .replace(/\s+/g, "_");
 
-          const icons: Record<string, JSX.Element> = {
-            harga: <DollarSign className="h-6 w-6 text-purple-600" />,
-            jarak: <MapPin className="h-6 w-6 text-cyan-500" />,
-            fasilitas: <Wifi className="h-6 w-6 text-yellow-500" />,
-            rating: <Star className="h-6 w-6 text-green-500" />,
-            sistem_keamanan: <Shield className="h-6 w-6 text-red-500" />,
-          };
+    const icon = icons[keyNormalized] || null;
 
-          return (
-            <div
-              key={keyNormalized}
-              className="bg-white p-4 rounded-xl shadow flex flex-col items-center"
-            >
-              {/* Icon & Name */}
-              <div className="flex flex-col items-center mb-3">
-                {icons[keyNormalized] || null}
-                <span className="font-medium text-gray-700 mt-1 text-center">
-                  {keyNormalized
-                    .split("_")
-                    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
-                    .join(" ")}
-                </span>
+    return (
+      <div
+        key={index}
+        className="bg-white p-4 rounded-xl shadow flex flex-col items-center"
+      >
+        {/* Nama & Icon */}
+        <div className="flex flex-col items-center mb-3">
+          {icon}
+          <span className="font-medium text-gray-700 mt-1 text-center">
+            {k.nama ?? k.nama_kriteria}
+          </span>
+        </div>
+
+
+                {/* Slider */}
+                <Slider
+                  value={[k.bobot * 100]} // tampil 20%
+                  onValueChange={(v) => handleSliderChange(index, v[0])}
+                  max={100}
+                  step={5}
+                  className="w-full mt-2"
+                />
+
+                {/* Persentase */}
+                <div className="mt-1 text-sm font-medium">
+                  {(k.bobot * 100).toFixed(0)}%
+                </div>
               </div>
+            );
+          })}
+        </div>
 
-              {/* Slider */}
-              <Slider
-                value={[sliderValue * 100]}
-                onValueChange={(v) => {
-                  const newValue = v[0] / 100;
+        {/* Total Bobot */}
+        <div className="text-right font-medium">
+          Total Bobot:{" "}
+          <span
+            className={
+              totalBobot === 100 ? "text-green-600" : "text-red-500"
+            }
+          >
+            {totalBobot}%
+          </span>
+        </div>
 
-                  // Batasi total bobot max 100%
-                  const otherTotal = (kriteriaList.length > 0
-                    ? kriteriaList.reduce((sum, item) => {
-                        const key = (item.nama ?? "").toLowerCase().replace(/\s+/g, "_");
-                        return key === keyNormalized ? sum : sum + (item.bobot ?? 0);
-                      }, 0)
-                    : Object.entries(bobotSementara).reduce((sum, [name, val]) => {
-                        return name === keyNormalized ? sum : sum + (val ?? 0);
-                      }, 0)
-                  );
-                  const maxValue = Math.min(newValue, 1 - otherTotal);
-
-                  if (kriteriaList.length > 0) {
-                    setKriteriaList((prev) =>
-                      prev.map((item) =>
-                        (item.nama ?? "").toLowerCase().replace(/\s+/g, "_") === keyNormalized
-                          ? { ...item, bobot: maxValue }
-                          : item
-                      )
-                    );
-                  } else {
-                    setBobotSementara((prev) => ({
-                      ...prev,
-                      [keyNormalized]: maxValue,
-                    }));
-                  }
-                }}
-                max={100}
-                step={5}
-                className="w-full mt-2"
-              />
-
-              {/* Persen */}
-              <div className="mt-1 text-sm font-medium">{(sliderValue * 100).toFixed(0)}%</div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Total Bobot */}
-      <div className="text-right font-medium">
-        Total Bobot: <span className={totalBobot === 100 ? "text-green-600" : "text-red-500"}>{totalBobot}%</span>
-      </div>
-
-      {/* Pie Chart */}
-      <div className="h-64 mt-4">
-        <ResponsiveContainer width="100%" height="100%">
-          <PieChart>
-            <Pie
-              data={kriteriaList.length > 0 ? kriteriaList.map(k => ({
-                key: k.nama,
-                value: k.bobot ?? 0,
-                displayValue: ((k.bobot ?? 0) * 100).toFixed(0)
-              })) : Object.entries(bobotSementara).map(([nama, val]) => ({
+        {/* Pie Chart */}
+        {/* Pie Chart */}
+<div className="h-64 mt-4">
+  <ResponsiveContainer width="100%" height="100%">
+    <PieChart>
+      <Pie
+        data={
+          kriteriaList.length > 0
+            ? kriteriaList.map((k) => {
+                const namaKriteria = k?.nama ?? k?.nama_kriteria ?? "Tidak diketahui";
+                const bobot = k.bobot ?? 0;
+                return {
+                    key: namaKriteria,
+                    value: bobot,
+                    displayValue: (bobot * 100).toFixed(0),
+                };
+            })
+            : Object.entries(bobotSementara).map(([nama, val]) => ({
                 key: nama,
                 value: val,
-                displayValue: (val * 100).toFixed(0)
-              }))}
-              cx="50%"
-              cy="50%"
-              innerRadius={60}
-              outerRadius={100}
-              paddingAngle={5}
-              dataKey="value"
-              label={({ payload }) => `${payload.key}: ${payload.displayValue}%`}
-            >
-              {(kriteriaList.length > 0 ? kriteriaList : Object.entries(bobotSementara).map(([n, v]) => ({ nama: n, bobot: v }))).map((k, index) => {
-                const lower = (k.nama ?? "").toLowerCase();
-                const color =
-                  lower === "harga"
-                    ? "#8b5cf6"
-                    : lower === "jarak"
-                      ? "#06b6d4"
-                      : lower === "fasilitas"
-                        ? "#f59e0b"
-                        : lower === "rating"
-                          ? "#10b981"
-                          : lower === "sistem_keamanan"
-                            ? "#ef4444"
-                            : "#9ca3af";
-                return <Cell key={`cell-${index}`} fill={color} />;
-              })}
-            </Pie>
-            <Tooltip formatter={(value: number) => `${(value * 100).toFixed(0)}%`} />
-          </PieChart>
-        </ResponsiveContainer>
-      </div>
-    </CardContent>
-  </Card>
-</TabsContent>
+                displayValue: (val * 100).toFixed(0),
+            }))
+        }
+        cx="50%"
+        cy="50%"
+        innerRadius={60}
+        outerRadius={100}
+        paddingAngle={5}
+        dataKey="value"
+        label={({ payload }) => `${payload.key}: ${payload.displayValue}%`}
+      >
+        {(kriteriaList.length > 0
+  ? kriteriaList
+  : Object.entries(bobotSementara).map(([nama, bobot]) => ({
+      nama,
+      bobot,
+    }))
+).map((k, index) => {
+  // Buat variabel nama yang aman
+  const namaKey: string =
+    "nama" in k
+      ? (k.nama ?? "")
+      : "nama_kriteria" in k
+      ? (k as { nama_kriteria?: string }).nama_kriteria ?? ""
+      : "";
 
+  const lower = namaKey.toLowerCase();
 
+  // Warna berdasarkan nama
+  const colorMap: Record<string, string> = {
+    harga: "#8b5cf6",
+    jarak: "#06b6d4",
+    fasilitas: "#f59e0b",
+    rating: "#10b981",
+    sistem_keamanan: "#ef4444",
+  };
+
+  const fallbackColors = ["#8b5cf6", "#06b6d4", "#f59e0b", "#10b981", "#ef4444"];
+  const color =
+    colorMap[lower] || fallbackColors[index % fallbackColors.length];
+
+  return <Cell key={`cell-${index}`} fill={color} />;
+})}
+      </Pie>
+
+      {/* Tooltip agar tampil nilai bobot saat hover */}
+      <Tooltip
+        formatter={(value: number) => `${(value * 100).toFixed(0)}%`}
+      />
+    </PieChart>
+  </ResponsiveContainer>
+</div>
+
+      </CardContent>
+    </Card>
+          </TabsContent>
 
           <TabsContent value="hasil" className="space-y-6">
             <Card>
